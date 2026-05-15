@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- BLOQUEO DE CACHÉ PARA QUE SIEMPRE BUSQUE LA URL NUEVA -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <title>Conectando al Servidor | MHWA HUB</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -38,34 +43,35 @@
         }
         p { color: rgba(255,255,255,0.6); font-size: 14px; }
         .error { color: #ff4a4a; display: none; text-align: center; max-width: 300px; }
-    </script>
+    </style>
 </head>
 <body>
     <div class="logo">MHWA HUB</div>
     <div class="loader" id="loader"></div>
     <p id="status">Buscando servidor activo...</p>
     <div id="error" class="error">
-        <p>Parece que el servidor está apagado en este momento.</p>
+        <p>Parece que el servidor está apagado o el enlace ha caducado.</p>
         <button onclick="location.reload()" style="background:#1a1a3e; color:white; border:1px solid #2a2a5a; padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:10px">Reintentar</button>
     </div>
 
     <script>
-        const NPOINT_ID = "50981ae28f304edbf4d8"; // TU ID DE SINCRONIZACIÓN
+        const NPOINT_ID = "50981ae28f304edbf4d8"; 
 
         async function connect() {
             try {
-                // 1. Obtener la URL actual desde npoint
-                const r = await fetch(`https://api.npoint.io/${NPOINT_ID}`);
+                // Añadimos un timestamp para que el navegador no use una copia vieja
+                const cacheBuster = new Date().getTime();
+                const r = await fetch(`https://api.npoint.io/${NPOINT_ID}?t=${cacheBuster}`);
                 const data = await r.json();
                 
                 if (data && data.url) {
                     const finalUrl = data.url.endsWith('/') ? data.url : data.url + '/';
                     document.getElementById('status').textContent = "Servidor encontrado. Redirigiendo...";
                     
-                    // 2. Redirigir al panel admin
+                    // Redirigir al panel admin
                     setTimeout(() => {
-                        window.location.href = finalUrl + "static/admin.html";
-                    }, 500);
+                        window.location.replace(finalUrl + "static/admin.html");
+                    }, 300);
                 } else {
                     throw new Error("No hay URL");
                 }
