@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conectando al Servidor | MHWA HUB</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #0a0b10;
+            color: white;
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow: hidden;
+        }
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #00d4aa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #00d4aa, #7000ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+        p { color: rgba(255,255,255,0.6); font-size: 14px; }
+        .error { color: #ff4a4a; display: none; text-align: center; max-width: 300px; }
+    </script>
+</head>
+<body>
+    <div class="logo">MHWA HUB</div>
+    <div class="loader" id="loader"></div>
+    <p id="status">Buscando servidor activo...</p>
+    <div id="error" class="error">
+        <p>Parece que el servidor está apagado en este momento.</p>
+        <button onclick="location.reload()" style="background:#1a1a3e; color:white; border:1px solid #2a2a5a; padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:10px">Reintentar</button>
+    </div>
+
+    <script>
+        const NPOINT_ID = "50981ae28f304edbf4d8"; // TU ID DE SINCRONIZACIÓN
+
+        async function connect() {
+            try {
+                // 1. Obtener la URL actual desde npoint
+                const r = await fetch(`https://api.npoint.io/${NPOINT_ID}`);
+                const data = await r.json();
+                
+                if (data && data.url) {
+                    const finalUrl = data.url.endsWith('/') ? data.url : data.url + '/';
+                    document.getElementById('status').textContent = "Servidor encontrado. Redirigiendo...";
+                    
+                    // 2. Redirigir al panel admin
+                    setTimeout(() => {
+                        window.location.href = finalUrl + "static/admin.html";
+                    }, 500);
+                } else {
+                    throw new Error("No hay URL");
+                }
+            } catch (e) {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('status').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        connect();
+    </script>
+</body>
+</html>
