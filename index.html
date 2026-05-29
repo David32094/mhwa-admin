@@ -3,11 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- BLOQUEO DE CACHÉ PARA QUE SIEMPRE BUSQUE LA URL NUEVA -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    
     <title>Conectando al Servidor | MHWA HUB</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -15,13 +10,13 @@
             background: #0a0b10;
             color: white;
             font-family: 'Outfit', sans-serif;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             margin: 0;
-            overflow: hidden;
+            padding: 24px;
         }
         .loader {
             width: 50px;
@@ -41,44 +36,137 @@
             -webkit-text-fill-color: transparent;
             margin-bottom: 5px;
         }
-        p { color: rgba(255,255,255,0.6); font-size: 14px; }
-        .error { color: #ff4a4a; display: none; text-align: center; max-width: 300px; }
+        p { color: rgba(255,255,255,0.6); font-size: 14px; text-align: center; max-width: 360px; line-height: 1.5; }
+        .panel { display: none; text-align: center; max-width: 400px; width: 100%; }
+        input {
+            width: 100%;
+            margin: 12px 0;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+            font-size: 14px;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #7000ff, #4a00cc);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 4px;
+        }
+        button.ghost {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .hint { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 10px; }
     </style>
 </head>
 <body>
-    <div class="logo">MHWA HUB</div>
-    <div class="loader" id="loader"></div>
-    <p id="status">Buscando servidor activo...</p>
-    <div id="error" class="error">
-        <p>Parece que el servidor está apagado o el enlace ha caducado.</p>
-        <button onclick="location.reload()" style="background:#1a1a3e; color:white; border:1px solid #2a2a5a; padding:10px 20px; border-radius:8px; cursor:pointer; margin-top:10px">Reintentar</button>
+    <div id="loading">
+        <div class="loader" id="loader"></div>
+        <div class="logo">MHWA HUB</div>
+        <p id="status">Buscando servidor activo...</p>
+    </div>
+
+    <div class="panel" id="error">
+        <div class="logo">MHWA HUB</div>
+        <p>No se encontró el servidor. Abre <strong>ABRIR_SERVIDOR.bat</strong> en el PC y espera el enlace activo.</p>
+        <input type="url" id="manualUrl" placeholder="https://xxxx.trycloudflare.com">
+        <div>
+            <button onclick="connectManual()">Conectar</button>
+            <button class="ghost" onclick="connect()">Reintentar auto</button>
+        </div>
+        <p class="hint">El enlace cambia cada vez que reinicias el .bat. Puedes copiarlo de la ventana verde o de updates/server_url.json</p>
     </div>
 
     <script>
-        const NPOINT_ID = "50981ae28f304edbf4d8"; 
+        const GITHUB_URL = "https://raw.githubusercontent.com/David32094/manhwahub-updates/main/server_url.json";
+        const NPOINT_URL = "https://api.npoint.io/50981ae28f304edbf4d8";
+
+        function normalizeBase(url) {
+            return (url || "").trim().replace(/\/+$/, "");
+        }
+
+        async function pingServer(base) {
+            try {
+                const r = await fetch(`${base}/api/status`, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+                return r.ok;
+            } catch {
+                return false;
+            }
+        }
+
+        async function fetchUrlFromSources() {
+            const t = Date.now();
+            const sources = [
+                { name: "GitHub", url: `${GITHUB_URL}?t=${t}` },
+                { name: "npoint", url: `${NPOINT_URL}?t=${t}` },
+            ];
+            for (const src of sources) {
+                try {
+                    const r = await fetch(src.url, { cache: "no-store" });
+                    if (!r.ok) continue;
+                    const data = await r.json();
+                    const base = normalizeBase(data.url);
+                    if (!base.startsWith("http")) continue;
+                    document.getElementById("status").textContent = `Comprobando ${src.name}...`;
+                    if (await pingServer(base)) return base;
+                    console.warn("URL en", src.name, "no responde:", base);
+                } catch (e) {
+                    console.warn(src.name, e);
+                }
+            }
+            return null;
+        }
+
+        function goAdmin(base) {
+            const finalUrl = normalizeBase(base);
+            document.getElementById("status").textContent = "Servidor encontrado. Abriendo panel...";
+            localStorage.setItem("mhwa_admin_server", finalUrl);
+            setTimeout(() => {
+                window.location.replace(`${finalUrl}/admin`);
+            }, 200);
+        }
+
+        function showError() {
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("error").style.display = "block";
+            const saved = localStorage.getItem("mhwa_admin_server");
+            if (saved) document.getElementById("manualUrl").value = saved;
+        }
 
         async function connect() {
-            try {
-                // Añadimos un timestamp para que el navegador no use una copia vieja
-                const cacheBuster = new Date().getTime();
-                const r = await fetch(`https://api.npoint.io/${NPOINT_ID}?t=${cacheBuster}`);
-                const data = await r.json();
-                
-                if (data && data.url) {
-                    const finalUrl = data.url.endsWith('/') ? data.url : data.url + '/';
-                    document.getElementById('status').textContent = "Servidor encontrado. Redirigiendo...";
-                    
-                    // Redirigir al panel admin
-                    setTimeout(() => {
-                        window.location.replace(finalUrl + "static/admin.html");
-                    }, 300);
-                } else {
-                    throw new Error("No hay URL");
-                }
-            } catch (e) {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('status').style.display = 'none';
-                document.getElementById('error').style.display = 'block';
+            document.getElementById("loading").style.display = "flex";
+            document.getElementById("loading").style.flexDirection = "column";
+            document.getElementById("loading").style.alignItems = "center";
+            document.getElementById("error").style.display = "none";
+            document.getElementById("loader").style.display = "block";
+            document.getElementById("status").style.display = "block";
+            document.getElementById("status").textContent = "Buscando servidor activo...";
+
+            const base = await fetchUrlFromSources();
+            if (base) {
+                goAdmin(base);
+            } else {
+                showError();
+            }
+        }
+
+        async function connectManual() {
+            const base = normalizeBase(document.getElementById("manualUrl").value);
+            if (!base.startsWith("http")) {
+                alert("Pega una URL válida (https://...trycloudflare.com)");
+                return;
+            }
+            document.getElementById("status").textContent = "Comprobando enlace...";
+            if (await pingServer(base)) {
+                goAdmin(base);
+            } else {
+                alert("Ese enlace no responde. ¿Está abierto ABRIR_SERVIDOR.bat en el PC?");
             }
         }
 
